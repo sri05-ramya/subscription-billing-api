@@ -67,3 +67,55 @@ class CustomerOut(BaseModel):
 class CustomerCardUpdate(StrictRequest):
     card_last4: str = Field(pattern=r"^\d{4}$", examples=["1111"])
     card_status: CardStatus = "valid"
+
+
+
+# ---------- Subscriptions ----------
+
+
+class SubscriptionCreate(StrictRequest):
+    customer_id: int = Field(gt=0, examples=[1])
+    plan_id: int = Field(gt=0, examples=[1])
+
+
+class SubscriptionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    customer_id: int
+    plan_id: int
+    status: str
+    current_period_start: datetime
+    current_period_end: datetime
+    retry_count: int
+    next_retry_at: datetime | None
+    created_at: datetime
+
+
+# ---------- Invoices & payments ----------
+
+
+class InvoiceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    subscription_id: int
+    amount: Decimal
+    status: str
+    period_start: datetime
+    period_end: datetime
+    paid_at: datetime | None
+    created_at: datetime
+
+
+class PaymentAttemptOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    invoice_id: int
+    attempt_number: int
+    amount: Decimal
+    status: str
+    failure_reason: str | None
+    idempotency_key: str
+    created_at: datetime
