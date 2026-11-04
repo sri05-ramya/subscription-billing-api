@@ -1,0 +1,11 @@
+# Virtual environment (huge, recreate from requirements.txt)
+venv/
+
+# Temporary files Python makes automatically
+__pycache__/
+
+# Local database file
+*.db
+
+# Secrets (passwords, keys)
+.env

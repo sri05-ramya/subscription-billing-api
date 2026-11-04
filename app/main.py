@@ -1,8 +1,16 @@
-from fastapi import FastAPI                      #from fastapi import FastAPI loads the FastAPI tool.
+from fastapi import FastAPI
 
-app = FastAPI(title="Subscription Billing API")  #app = FastAPI(...) creates our API and gives it a name.
+from app.config import get_settings
+
+settings = get_settings()
+
+app = FastAPI(title=settings.app_name)
 
 
-@app.get("/health")                              #@app.get("/health") means “when someone opens /health, run the function below.”
+@app.get("/health")
 def health():
-    return {"status": "ok"}                      #return {"status": "ok"} sends this answer back as JSON.
+    return {
+        "status": "ok",
+        "environment": settings.environment,
+        "max_payment_retries": settings.max_payment_retries,
+    }

@@ -1,4 +1,0 @@
-venv/                    #venv/ is huge (thousands of files), and anyone can recreate it from requirements.txt.
-__pycache__/             #__pycache__/ holds temporary files Python makes automatically.
-*.db                     #.db is your local database file.
-.env                     #.env will hold your secrets (passwords, keys).
