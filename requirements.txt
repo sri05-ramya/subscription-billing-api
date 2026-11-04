@@ -5,3 +5,4 @@ pydantic-settings ##reads settings from a .env file.
 PyJWT ##creates login tokens.
 pytest ## pytest and httpx test our code.
 httpx
+psycopg[binary]
