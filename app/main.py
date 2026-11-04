@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from app import models  # noqa: F401  (loads the tables so Base knows about them)
 from app.config import get_settings
 from app.database import Base, engine
+from app.routers import plans
 
 settings = get_settings()
 
@@ -18,6 +19,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app.include_router(plans.router)
 
 
 @app.get("/health")
