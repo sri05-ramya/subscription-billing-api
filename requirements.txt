@@ -1,0 +1,7 @@
+fastapi ##fastapi builds the API.
+uvicorn ##runs the API server.
+sqlalchemy ##talks to the database (customers, plans, invoices).
+pydantic-settings ##reads settings from a .env file.
+PyJWT ##creates login tokens.
+pytest ## pytest and httpx test our code.
+httpx
