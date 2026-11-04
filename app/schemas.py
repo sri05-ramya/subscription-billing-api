@@ -61,3 +61,9 @@ class CustomerOut(BaseModel):
     card_last4: str
     card_status: str
     created_at: datetime
+
+
+
+class CustomerCardUpdate(StrictRequest):
+    card_last4: str = Field(pattern=r"^\d{4}$", examples=["1111"])
+    card_status: CardStatus = "valid"
