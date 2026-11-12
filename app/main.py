@@ -7,9 +7,12 @@ from app.config import get_settings
 from app.database import Base, engine
 from app.routers import auth, billing, customers, plans, subscriptions
 from app.deps import staff_access
+from app.logging_config import setup_logging
+from app.middleware import RequestContextMiddleware
+from app.errors import register_error_handlers
 
 settings = get_settings()
-
+setup_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -20,6 +23,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app.add_middleware(RequestContextMiddleware)
+register_error_handlers(app)
 app.include_router(auth.router)
 app.include_router(plans.router, dependencies=[Depends(staff_access)])
 app.include_router(customers.router, dependencies=[Depends(staff_access)])

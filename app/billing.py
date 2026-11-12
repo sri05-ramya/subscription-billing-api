@@ -1,5 +1,6 @@
 """Billing service: create invoices, charge cards, and schedule retries."""
 
+import logging
 from datetime import datetime, timedelta
 
 from sqlalchemy import func, select
@@ -9,6 +10,8 @@ from app.config import get_settings
 from app.dates import add_one_month
 from app.models import Invoice, PaymentAttempt, Subscription
 from app.payment_gateway import charge_card
+
+logger = logging.getLogger("app.billing")
 
 
 def retry_days() -> list[int]:
@@ -58,6 +61,15 @@ def attempt_payment(db: Session, invoice: Invoice, now: datetime) -> PaymentAtte
     db.add(attempt)
 
     if result.succeeded:
+        logger.info(
+            "payment succeeded",
+            extra={
+                "invoice_id": invoice.id,
+                "subscription_id": subscription.id,
+                "attempt_number": attempt_number,
+                "amount": str(invoice.amount),
+            },
+        )
         invoice.status = "paid"
         invoice.paid_at = now
         subscription.status = "active"
@@ -72,10 +84,29 @@ def attempt_payment(db: Session, invoice: Invoice, now: datetime) -> PaymentAtte
     if retries_done < len(schedule):
         subscription.status = "past_due"
         subscription.next_retry_at = invoice.period_start + timedelta(days=schedule[retries_done])
+        logger.warning(
+            "payment failed, retry scheduled",
+            extra={
+                "invoice_id": invoice.id,
+                "subscription_id": subscription.id,
+                "attempt_number": attempt_number,
+                "reason": result.failure_reason,
+                "next_retry_at": subscription.next_retry_at,
+            },
+        )
     else:
         invoice.status = "failed"
         subscription.status = "paused"
         subscription.next_retry_at = None
+        logger.error(
+            "subscription paused after final retry",
+            extra={
+                "invoice_id": invoice.id,
+                "subscription_id": subscription.id,
+                "attempt_number": attempt_number,
+                "reason": result.failure_reason,
+            },
+        )
     return attempt
 
 
