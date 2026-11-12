@@ -111,3 +111,40 @@ def run_billing(db: Session, now: datetime) -> list[dict]:
 
     db.commit()
     return results
+
+
+# Job 4: retry failed payments whose retry time has come
+def run_retries(db: Session, now: datetime) -> list[dict]:
+    due = db.scalars(
+        select(Subscription)
+        .where(Subscription.status == "past_due", Subscription.next_retry_at <= now)
+        .order_by(Subscription.id)
+    ).all()
+
+    results = []
+    for subscription in due:
+        invoice = db.scalar(
+            select(Invoice)
+            .where(Invoice.subscription_id == subscription.id, Invoice.status == "open")
+            .order_by(Invoice.period_start.desc())
+            .limit(1)
+        )
+        if invoice is None:
+            continue
+
+        attempt = attempt_payment(db, invoice, now)
+        results.append(
+            {
+                "subscription_id": subscription.id,
+                "invoice_id": invoice.id,
+                "attempt_number": attempt.attempt_number,
+                "payment": attempt.status,
+                "failure_reason": attempt.failure_reason,
+                "subscription_status": subscription.status,
+                "retry_count": subscription.retry_count,
+                "next_retry_at": subscription.next_retry_at,
+            }
+        )
+
+    db.commit()
+    return results

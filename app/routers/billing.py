@@ -33,6 +33,21 @@ def run_billing(
     return {"as_of": now, "billed": len(results), "results": results}
 
 
+
+# Endpoint 1b: POST /billing/retries/run - retry failed payments that are due
+@router.post("/billing/retries/run")
+def run_payment_retries(
+    as_of: datetime | None = Query(
+        default=None,
+        description="Pretend date for testing, e.g. 2026-12-06. Empty = real current time.",
+    ),
+    db: Session = Depends(get_db),
+):
+    now = to_utc(as_of)
+    results = billing_service.run_retries(db, now)
+    return {"as_of": now, "retried": len(results), "results": results}
+
+
 # Endpoint 2: GET /invoices - list invoices (optionally for one subscription)
 @router.get("/invoices", response_model=list[InvoiceOut])
 def list_invoices(subscription_id: int | None = None, db: Session = Depends(get_db)):
@@ -52,3 +67,5 @@ def list_payment_attempts(invoice_id: int, db: Session = Depends(get_db)):
         .where(PaymentAttempt.invoice_id == invoice_id)
         .order_by(PaymentAttempt.attempt_number)
     ).all()
+
+
