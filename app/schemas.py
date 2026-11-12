@@ -78,6 +78,9 @@ class SubscriptionCreate(StrictRequest):
     plan_id: int = Field(gt=0, examples=[1])
 
 
+class PlanChangeRequest(StrictRequest):
+    plan_id: int = Field(gt=0, examples=[2])
+
 class SubscriptionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

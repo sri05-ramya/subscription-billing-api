@@ -1,13 +1,15 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.billing import attempt_payment
 from app.database import get_db
 from app.dates import add_one_month
-from app.models import Customer, Plan, Subscription
-from app.schemas import SubscriptionCreate, SubscriptionOut
+from app.models import Customer, Invoice, Plan, Subscription
+from app.proration import prorate
+from app.schemas import PlanChangeRequest, SubscriptionCreate, SubscriptionOut
 
 router = APIRouter(prefix="/subscriptions", tags=["Subscriptions"])
 
@@ -86,3 +88,72 @@ def cancel_subscription(subscription_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(subscription)
     return subscription
+
+
+
+# Endpoint 5: POST /subscriptions/{subscription_id}/change-plan - upgrade/downgrade with proration
+@router.post("/{subscription_id}/change-plan")
+def change_plan(
+    subscription_id: int,
+    payload: PlanChangeRequest,
+    as_of: datetime | None = Query(
+        default=None,
+        description="Pretend date for testing. Empty = real current time.",
+    ),
+    db: Session = Depends(get_db),
+):
+    subscription = get_subscription_or_404(db, subscription_id)
+    if subscription.status != "active":
+        raise HTTPException(status_code=409, detail="Only active subscriptions can change plan")
+
+    new_plan = db.get(Plan, payload.plan_id)
+    if new_plan is None or not new_plan.is_active:
+        raise HTTPException(status_code=404, detail=f"Plan {payload.plan_id} not found")
+
+    old_plan = subscription.plan
+    if new_plan.id == old_plan.id:
+        raise HTTPException(status_code=409, detail="Subscription is already on this plan")
+
+    now = as_of if as_of else datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    if not (subscription.current_period_start <= now < subscription.current_period_end):
+        raise HTTPException(status_code=409, detail="Change date must be inside the current billing period")
+
+    result = prorate(
+        old_plan.price,
+        new_plan.price,
+        subscription.current_period_start,
+        subscription.current_period_end,
+        now,
+    )
+
+    invoice_id = None
+    payment = "not_needed"
+    if result["amount_due"] > 0:
+        invoice = Invoice(
+            subscription_id=subscription.id,
+            amount=result["amount_due"],
+            status="open",
+            period_start=now,
+            period_end=subscription.current_period_end,
+        )
+        db.add(invoice)
+        db.flush()
+        attempt = attempt_payment(db, invoice, now)
+        invoice_id = invoice.id
+        payment = attempt.status
+
+    subscription.plan = new_plan
+    db.commit()
+
+    return {
+        "subscription_id": subscription.id,
+        "old_plan": old_plan.name,
+        "new_plan": new_plan.name,
+        "changed_at": now,
+        **result,
+        "invoice_id": invoice_id,
+        "payment": payment,
+        "subscription_status": subscription.status,
+    }
