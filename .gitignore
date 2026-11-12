@@ -9,3 +9,6 @@ __pycache__/
 
 # Secrets (passwords, keys)
 .env
+
+# pytest temporary files
+.pytest_cache/

@@ -1,0 +1,11 @@
+# Virtual environment (Docker installs its own packages)
+venv/
+
+# Secrets never go into the image
+.env
+
+# Not needed inside the container
+__pycache__/
+.git/
+.pytest_cache/
+*.db
